@@ -1,0 +1,17 @@
+#define LS	1
+#define LLS	2
+#define CD	3
+#define LCD	4
+#define GET	5
+#define PUT	6
+#define PWD	7
+#define RM	8
+#define MKDIR	9
+#define QUIT	0
+
+typedef struct msg
+{
+	int type;
+	char cmd[128];
+	char data_buf[1024];
+}Msg,*P_msg;

@@ -1,0 +1,211 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>          /* See NOTES */
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include "config.h"
+#include <sys/stat.h>
+#include <fcntl.h>
+
+int command_hundler(char *r_buf)
+{
+	if(strcmp(r_buf,"ls") == 0)						return LS;
+	if(strcmp(r_buf, "lls") == 0)						return LLS;
+	if(strstr(r_buf, "cd") != NULL && strstr(r_buf, "lcd") == NULL)         return CD;
+	if(strstr(r_buf, "lcd") != NULL)					return LCD;
+	if(strstr(r_buf, "get") != NULL)					return GET;
+	if(strstr(r_buf, "put") != NULL)					return PUT;
+	if(strcmp(r_buf, "pwd") == 0)						return PWD;
+	if(strstr(r_buf, "rm") != NULL)						return RM;
+	if(strstr(r_buf, "mkdir") != NULL)					return MKDIR;
+	if(strcmp(r_buf, "quit") == 0)						return QUIT;
+	return -1;
+}
+
+char *command_segmentation(char *cmd)
+{
+	char *file_name = NULL;
+	file_name = strtok(cmd, " ");
+	file_name = strtok(NULL, " ");
+	return file_name;
+}
+
+int command(int *s_fd)
+{
+	int cmd;
+	FILE *p_fd;
+	int fd;
+	char *file_name = NULL;
+	Msg r_msg_buf;
+	Msg w_msg_buf;
+	char w_msg_buf_cp[128] = {0};
+	memset(&r_msg_buf, 0, sizeof(Msg));
+	memset(&w_msg_buf, 0, sizeof(Msg));
+	printf(">");
+	gets(w_msg_buf.cmd);
+	write(*s_fd, &w_msg_buf, sizeof(Msg));		//send msg to server
+
+	cmd = command_hundler(w_msg_buf.cmd);	
+	printf("************************************************************************************\n");
+	printf("\n");
+	switch(cmd)
+	{
+		case LS:
+			read(*s_fd, &r_msg_buf, sizeof(Msg));
+			printf("%s\n", r_msg_buf.data_buf);
+			break;
+
+		case LLS:
+			read(*s_fd, &r_msg_buf, sizeof(Msg));
+			p_fd = popen("ls -l", "r");
+			memset(r_msg_buf.data_buf, 0, 1024);
+			fread(r_msg_buf.data_buf, 1024, 1, p_fd);
+			printf("%s\n", r_msg_buf.data_buf);
+			fclose(p_fd);
+			break;
+		case CD:
+			read(*s_fd, &r_msg_buf, sizeof(Msg));
+			if(strcmp(r_msg_buf.data_buf, "The server is no such file directory!") == 0)
+			{
+				printf("%s\n", r_msg_buf.data_buf);
+			}
+			break;
+		case LCD:
+			read(*s_fd, &r_msg_buf, sizeof(Msg));
+			file_name = command_segmentation(r_msg_buf.cmd);
+			if(access(file_name, F_OK) == 0)
+			{
+				chdir(file_name);
+			}
+			else
+			{
+				memset(r_msg_buf.data_buf, 0, 1024);
+				strcpy(r_msg_buf.data_buf, "The client is no such file directory!");
+				printf("%s\n", r_msg_buf.data_buf);
+			}
+			break;
+		case GET:
+			read(*s_fd, &r_msg_buf,sizeof(Msg));
+			file_name = command_segmentation(r_msg_buf.cmd);
+			if(strcmp(r_msg_buf.data_buf, "The server is no such document!") == 0)
+			{
+				printf("%s\n", r_msg_buf.data_buf);
+			}
+			else
+			{
+				if(access(file_name, F_OK) == 0)
+				{
+					int fd = open(file_name, O_RDWR|O_TRUNC);
+					if(fd == -1)
+					{
+						perror("open error: ");
+					}
+					if(write(fd, r_msg_buf.data_buf, strlen(r_msg_buf.data_buf)) == -1)
+					{
+						perror("write error: ");
+					}
+					close(fd);
+				}
+				else
+				{
+					int fd = creat(file_name, 0666);
+					if(fd == -1)
+					{
+						perror("creat error: ");
+					}
+					if(write(fd, r_msg_buf.data_buf, strlen(r_msg_buf.data_buf)) == -1)
+					{
+						perror("write error: ");
+					}
+
+					close(fd);
+				}		
+			}
+			printf("File %s was downloaded successfully!\n", file_name);
+			putchar('\n');
+			break;
+		case PUT:
+			w_msg_buf.type = PUT;
+			strcpy(w_msg_buf_cp, w_msg_buf.cmd);
+			file_name = command_segmentation(w_msg_buf_cp);
+		//	printf("%s\n", w_msg_buf.cmd);
+			if(access(file_name, F_OK) == 0)
+			{
+				int fd = open(file_name, O_RDWR);
+				read(fd, w_msg_buf.data_buf, 1024);
+				write(*s_fd, &w_msg_buf, sizeof(Msg));
+				close(fd);
+			}
+			else
+			{
+				strcpy(w_msg_buf.data_buf, "The client is no such document!");
+				write(*s_fd, &w_msg_buf, sizeof(Msg));
+				printf("%s\n", w_msg_buf.data_buf);
+			}
+			printf("File %s has been uploaded successfully!\n", file_name);
+			putchar('\n');
+			break;
+		case PWD:
+			read(*s_fd, &r_msg_buf, sizeof(Msg));
+			printf("%s\n", r_msg_buf.data_buf);
+			break;
+		case RM:
+			read(*s_fd, &r_msg_buf, sizeof(Msg));
+			printf("%s\n", r_msg_buf.data_buf);
+			printf("\n");
+			break;
+		case MKDIR:
+			read(*s_fd, &r_msg_buf, sizeof(Msg));
+			printf("%s\n", r_msg_buf.data_buf);
+			printf("\n");
+			break;
+		case QUIT:
+			read(*s_fd, &r_msg_buf, sizeof(Msg));
+			printf("************************************************************************************\n");
+			exit(0);
+			break;
+		default :
+			read(*s_fd, &r_msg_buf, sizeof(Msg));
+			printf("%s\n", r_msg_buf.data_buf);
+			putchar('\n');
+			break;
+	}
+	memset(&r_msg_buf, 0, sizeof(Msg));
+        memset(&w_msg_buf, 0, sizeof(Msg));
+	printf("************************************************************************************\n");
+	return 0;
+}	
+
+int main(int argc, char **argv)
+{
+	int s_fd;
+	char r_buf[20] = {'\0'};
+	char w_buf[20] = {'\0'};
+	strcpy(w_buf, "i am client!");
+	struct sockaddr_in s_addr;
+	memset(&s_addr, 0, sizeof(struct sockaddr_in));
+	s_addr.sin_family = AF_INET;
+	s_addr.sin_port = htons(atoi(argv[2]));
+	inet_aton(argv[1], &s_addr.sin_addr);
+	s_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if(s_fd == -1)
+	{
+		perror("socket error:");
+		exit(-1);
+	}
+	if(connect(s_fd, (struct sockaddr *)&s_addr, sizeof(struct sockaddr_in)) == -1)
+	{
+		perror("connect error:");
+		exit(-1);
+	}
+	while(1)
+	{
+		command(&s_fd);
+	}
+
+	close(s_fd);
+	return 0;
+}
