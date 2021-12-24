@@ -1,95 +1,60 @@
 #include "staff_management_include.h"
+int *glo_sfd = NULL;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+
 
 int main(int argc, char **argv)
 {
-	int sfd = 0, ret;
-	int newfd = 0;
-	pid_t pid;
-	sighandler_t sig = signal(SIGCHLD, signal_handler);
-	if(sig == SIG_ERR)
-	{
-		printf("signal is error!\n");
-		return -1;
-	}
-	sfd = socket(AF_INET, SOCK_STREAM, 0);
-	if(sfd == -1)
-	{
-		perror("socket:");
-		return -1;
-	}
-	int reuse = 1;
-	if(setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
-	{
-		printf("sercockopt is error!\n");
-		ret = -1;
-		goto ERR;
-	}
-			
-	struct sockaddr_in *client_addr = (struct sockaddr_in *)__malloc_function_(sizeof(struct sockaddr_in));
-	int addr_len = sizeof(struct sockaddr_in);
+	int ret, sfd = 0;
+	pthread_t th1;
 	struct sockaddr_in *server_addr = (struct sockaddr_in *)__malloc_function_(sizeof(struct sockaddr_in));
 	server_addr->sin_family = AF_INET;
 	server_addr->sin_port = htons(PORT);
 	server_addr->sin_addr.s_addr = inet_addr(IP);
-	ret = bind(sfd, (struct sockaddr *)server_addr, sizeof(struct sockaddr_in));
-	ret = listen(sfd, 10);
-	if(ret < 0)
+	sfd = socket(AF_INET, SOCK_STREAM, 0);
+	if(sfd == -1)
 	{
-		printf("listen is error!\n");	
+		perror("socket:");
+		ret = sfd;
 		goto ERR1;
-	}
-	while(1)
-	{
-		printf("等待连接中.....\n");
-		newfd = accept(sfd, (struct sockaddr *)client_addr, (socklen_t *)&addr_len);
-		if(newfd == -1)
-		{
-			perror("accept:");
-			ret = newfd;
-			goto ERR1;
-		}
-		pid = fork();
-		if(pid == 0)
-		{
-			printf("%d 连接成功!\n", newfd);
-			PMSG pmsg = (PMSG)__malloc_function_(sizeof(MSG));
-			while(1)
-			{
-				if(The_server_parses_client_operations(pmsg, &newfd) == 3)//服务器解析客户端操作 
-				{
-					Records_the_login_status_bits(pmsg, &newfd, 0);
-					general_staff_Records_the_login_status_bits(pmsg, &newfd, 0);//普通员工记录登录状态位_
-					break;
-				}
-			}
-			printf("%d\n", newfd);
-			__free_function((void **)&pmsg);
-			break;
-		}
-		else if(pid > 0)
-		{
-
-		}
-		else
-		{
-			printf("fork is error!\n");
-		}
 	}
 	
 
+	ret = connect(sfd, (struct sockaddr *)server_addr, sizeof(struct sockaddr_in));
+	if(ret != 0)
+	{
+		perror("connect:");
+		goto ERR1;
+	}
+	PMSG pmsg = (PMSG)__malloc_function_(sizeof(MSG));
+	glo_sfd = &sfd;
+	ret = pthread_create(&th1, NULL, pthread_func, (void *)pmsg);
+	if(ret != 0)
+	{
+		printf("pthread create is error!\n");
+		return -1;
+	}
+	while(1)
+	{
+		ret = user_connection_operation(pmsg);//用户连接操作 
+		if(ret == 3)
+		{
+			pthread_cancel(th1);
+			break;
+		}
+	}
 
-
-	__free_function((void **)&server_addr);
-	__free_function((void **)&client_addr);
-	close(newfd);
+	pthread_join(th1, NULL);
 	close(sfd);
+	pthread_cond_destroy(&cond);
+	pthread_mutex_destroy(&mutex);
+	__free_function_((void **)&pmsg);
+	__free_function_((void **)&server_addr);
 	return 0;
-/*========================error=========================*/
 ERR1:
-	__free_function((void **)&server_addr);
-	__free_function((void **)&client_addr);
-	close(newfd);
-	close(sfd);
-ERR:
+	__free_function_((void **)&server_addr);
 	return ret;
+
 }
+

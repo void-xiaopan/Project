@@ -10,84 +10,70 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 #include <signal.h>
-#include <sys/wait.h>
-#include <sqlite3.h>
 
 
 #define PORT 8888
 #define IP "192.168.1.250"
-#define TAB_NAME "./staff.db"
-#define SIZE 256
-#define MB 1024
 
-typedef struct message
+typedef struct message_t
 {
 	char flags[8];
 	char name[16];
-	char id[12];//unsigned int
+	char id[12];
 	char passwd[12];
 	char sex;
 	char addr[128];
-	char wage[12];//float
-	char telephone[12];//unsigned long
+	char wage[12];
+	char telephone[12];
 	char data[1024];
 }__attribute__((packed))MSG, *PMSG;
 
-typedef struct sqliet3_get_table
-{
-	char *cmd;
-	int row;
-	int column;
-	char **result;
-	char *err;
-}TAB, *PTAB;
 
+int The_client_receives_the_message(PMSG pmsg);//客户端接收信息 
+int The_client_sends_the_message(PMSG pmsg);//客户端发送消息
+int user_connection_operation(PMSG pmgs);//用户连接操作 
+int The_administrator_registers_the_account_function(PMSG pmsg);//管理员注册账号函数_
+int Administrator_Operation_Tips();//管理员操作提示 
 
+int get_user_id(PMSG pmsg);
+int get_user_name(PMSG pmsg);
+int get_user_sex(PMSG pmsg);
+int get_user_passwd(PMSG pmsg);
+int get_user_addr(PMSG pmsg);
+int get_user_wage(PMSG pmsg);
+int get_user_telephone(PMSG pmsg);
+int get_user_data(PMSG pmsg);
+int Administrator_operation_function(PMSG pmsg);//管理员操作函数
 
-
-typedef void (*sighandler_t)(int);
-void signal_handler(int signum);
+void *pthread_func(void *arg_v);
+int user_identity_selection_prompt();//用户身份选择
 void *__malloc_function_(size_t size);//申请指针内存
-void *__free_function(void **p);//释放指针内存
-int The_server_parses_client_operations(PMSG pmsg, int *newfd);//服务器解析客户端操作 
-int Service_user_authentication_function(PMSG pmsg, int *newfd);//服务用户身份验证函数_
-int Server_administrator_operation_resolution(PMSG pmsg, int *newfd);//服务器管理员操作解析_
-int __sqlite3_exec_function_(sqlite3* db, char *sql_cmd);
-int Server_administrator_registration_information_manipulation_function(PMSG pmsg, int *newfd);//服务器管理员注册信息操作函数
-int The_server_receives_information_from_the_client(PMSG pmsg, int *newfd);//服务端接收客户端信息_
-int The_server_sends_information_to_the_client(PMSG pmsg, int *newfd);//服务端发送给客户端信息_
-int Server_administrator_login_information_operation_function(PMSG pmsg, int *newfd);//服务器管理员登录信息操作函数
+void *__free_function_(void **p);//释放指针内存
+
+int Administrator_login_account_function(PMSG pmsg);//管理员登录账号函数
+int Prompt_function_for_administrator_login_operation(PMSG pmsg);//管理员登录操作提示函数
+int The_administrator_successfully_logs_in_to_the_function(PMSG pmsg);//管理员登录成功操作函数
+int Add_employee_information_manipulation_functioni(PMSG pmsg);//增加员工信息操作函数
+int Delete_employee_account_information_operation_function(PMSG pmsg);//删除员工账户信息操作函数
+int Client_user_modifies_information_operation_function(PMSG pmsg);//客户端用户修改信息操作函数
+int Funcddtion_used_by_client_users_to_obtain_user_information(PMSG pmsg);//客户端用户获取用户信息操作函数_
+int Example_Modify_the_account_information_of_a_user(PMSG pmsg);//修改用户自己的账号信息
+int The_administrator_queries_information_about_an_employee(PMSG pmsg);//管理员查询单个员工信息_
+int The_administrator_queries_information_about_all_employees(PMSG pmsg);//管理员查询所有员工信息
+int Client_common_users_operate_functions(PMSG pmsg);//客户端普通用户操作函数
+int Common_user_operation_prompt_functioni();//_普通用户操作提示函数_
+int Client_common_user_login_operation_function(PMSG pmsg);//_客户端普通用户登录操作函数
+int The_client_user_successfully_logs_in_to_implement_the_function(PMSG pmsg);//客户端用户登录成功操作_实现函数_
+int Normal_client_users_use_functions_normally(PMSG pmsg);//客户端普通用户正常使用函数
+int A_message_indicating_successful_login_is_displayed(PMSG pmsg);//用户登录成功操作提示
+int Common_client_users_modify_their_own_information(PMSG pmsg);//客户端普通用户修改自己的信息
+int Modification_prompt_for_common_users();//普通用户修改提示_
+int Ordinary_users_view_all_their_information(PMSG pmsg);//普通用户查看自己的所有信息
+int Common_users_query_the_employee_address_book(PMSG pmsg);//普通用户查询员工通讯录
 
 
-int Account_password_Login_information_authentication_function(PMSG pmsg, int *newfd);//账号密码登录信息验证函数
-sqlite3 *__sqlite3_open_func_(char *path);
-int __sqlite3_close_func_(sqlite3 *db);
-int __sqlite3_get_table_func_(sqlite3 *db, PTAB tab);
-int Result_of_determining_login_information(PMSG pmsg, int *newfd, int flags);//登录信息判定结果_
-int Records_the_login_status_bits(PMSG pmsg, int *newfd, int flags);//记录登录状态位_
-int The_administrator_successfully_logs_in_to_the_function(PMSG pmsg, int *newfd);//管理员登录成功操作函数
-int The_server_parses_the_client_operation_functions(PMSG pmsg, int *newfd);//服务器解析客户端操作函数
-int The_server_parses_the_client_delete_account_function(PMSG pmsg, int *newfd);//服务端解析客户端删除账户函数
-int The_server_resolves_the_user_account_information_requested_by_the_client(PMSG, int *);//服务端解析客户端请求用户账号信息操作函数_
-
-int The_server_resolves_the_client_and_modifies_the_user_account_information(PMSG pmsg, int *newfd);//服务端解析客户端修改用户账号信息
-int The_server_obtains_the_administrator_information_table(PMSG pmsg, int *newfd);//服务端获取管理员信息表
-int The_server_obtains_the_common_employee_information_table(PMSG pmsg, int *newfd);//服务端获取普通员工信息表_
-int Verify_account_existence(PMSG pmsg, sqlite3 *db);//验证账号存在 
-int The_server_resolves_the_administrator_to_change_the_account_password(PMSG pmsg, int *newfd);//服务端解析管理员用户修改账户密码
-int Server_resolution_The_administrator_queries_information_about_a_single_employee(PMSG pmsg, int *newfd);//服务器解析管理员查询单个员工信息_
-int Server_administrator_view_all_employee_information(PMSG pmsg, int *newfd);//服务器管理员查看所有职工信息
-int The_server_resolves_common_employee_operations(PMSG pmsg, int *newfd);//服务器解析普通职员操作
-int The_server_resolves_the_common_user_login_operation_function(PMSG pmsg, int *newfd);//服务端解析普通用户登录操作函数_
-int A_normal_user_validates_the_login_function(PMSG pmsg, int *newfd);//普通用户验证登录函数
-int Verify_whether_this_is_the_user_first_login(PMSG pmsg, int *newfd);//验证是否是用户首次登录
-int The_server_improves_the_user_information_function(PMSG pmsg, int *newfd);//服务器完善用户信息函数_
-int The_server_parses_the_user_login_operation_function(PMSG pmsg, int *newfd);//服务端解析用户登录操作函数
-int general_staff_Records_the_login_status_bits(PMSG pmsg, int *newfd, int flags);//普通员工记录登录状态位_
-int The_server_parses_the_modification_information_of_common_employees(PMSG pmsg, int *newfd);//服务端解析普通员工修改信息
-int The_server_parses_the_client_to_query_its_own_account_information(PMSG pmsg, int *newfd);//服务端解析客户查询自己账号信息
-int The_server_resolves_the_client_query_address_book(PMSG pmsg, int *newfd);//服务端解析客户端查询通讯录
 
 
 
